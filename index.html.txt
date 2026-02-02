@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AimEngine">
+    <title>AimEngine Panel</title>
+    <style>
+        :root { --primary: #ff3e3e; --bg: rgba(10, 10, 10, 0.9); }
+        body {
+            margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000; color: white; overflow: hidden; touch-action: none;
+        }
+        #panel {
+            width: 280px; background: var(--bg); border: 1px solid #333;
+            border-radius: 8px; position: absolute; top: 50px; left: 20px;
+            padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px); z-index: 9999;
+        }
+        .header { font-weight: bold; color: var(--primary); margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .switch { width: 40px; height: 20px; background: #333; border-radius: 20px; position: relative; transition: .3s; }
+        .switch.active { background: var(--primary); }
+        .switch::after { content: ''; width: 16px; height: 16px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: .3s; }
+        .switch.active::after { left: 22px; }
+        .slider { width: 100%; accent-color: var(--primary); }
+        label { font-size: 11px; text-transform: uppercase; }
+        #overlay { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 5; }
+    </style>
+</head>
+<body>
+
+    <div id="panel">
+        <div class="header">AIMENGINE V1 - iOS 11</div>
+        <div class="row">
+            <label>Aimbot (Bezier)</label>
+            <div id="aimbot_toggle" class="switch" onclick="toggle('aimbot')"></div>
+        </div>
+        <div class="row">
+            <label>Precision Head (Lock)</label>
+            <div id="headlock_toggle" class="switch" onclick="toggle('headlock')"></div>
+        </div>
+        <div class="row">
+            <label>Low Pass Filter</label>
+            <div id="filter_toggle" class="switch active" onclick="toggle('filter')"></div>
+        </div>
+        <hr style="border:0; border-top:1px solid #333; margin: 15px 0;">
+        <label>Smoothing (Passa-Baixa)</label>
+        <input type="range" class="slider" id="smoothing" min="1" max="100" value="20">
+        <label style="margin-top: 10px; display: block;">FOV Radius</label>
+        <input type="range" class="slider" id="fov" min="30" max="350" value="150">
+    </div>
+
+    <canvas id="overlay"></canvas>
+
+    <script type="module">
+        import { AimEngine } from './engine.js';
+        
+        // Estado Global para o sistema
+        window.state = {
+            aimbot: false,
+            headlock: false,
+            filter: true,
+            smoothing: 0.2,
+            fov: 150
+        };
+
+        const engine = new AimEngine();
+
+        window.toggle = (feature) => {
+            window.state[feature] = !window.state[feature];
+            document.getElementById(feature + '_toggle').classList.toggle('active');
+        };
+
+        document.getElementById('smoothing').oninput = (e) => {
+            window.state.smoothing = e.target.value / 100;
+        };
+
+        document.getElementById('fov').oninput = (e) => {
+            window.state.fov = e.target.value;
+        };
+
+        // --- LÓGICA DO CANVAS (FOV) ---
+        const canvas = document.getElementById('overlay');
+        const ctx = canvas.getContext('2d');
+        let pulse = 0;
+
+        function setupCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            if (window.state.aimbot) {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                pulse += 0.04;
+                const radius = parseFloat(window.state.fov) + Math.sin(pulse) * 3;
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 62, 62, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(255, 62, 62, 0.9)';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            requestAnimationFrame(draw);
+        }
+
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
+        draw();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+</html>

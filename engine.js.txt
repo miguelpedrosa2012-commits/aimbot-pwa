@@ -1,0 +1,44 @@
+// engine.js - Otimizado para Precisão (iPhone 11)
+export class AimEngine {
+    constructor(config = {}) {
+        this.clampValue = config.clampValue || 72; // Limite de Flick (Mapeado do Metadata)
+        this.precisionThreshold = 15; // Raio para entrar em modo Headlock
+        this.lowPassStrength = 0.2; // Suavização de Jitter
+        this.lastOutput = { x: 0, y: 0 };
+    }
+
+    // Resolve a aceleração via Curva de Bézier Cúbica
+    solveBezier(t) {
+        const cx = 3 * 0.42;
+        const bx = 3 * (0.58 - 0.42) - cx;
+        const ax = 1 - cx - bx;
+        return ((ax * t + bx) * t + cx) * t;
+    }
+
+    // Filtro Passa-Baixa para remover tremidos (Jitter)
+    filter(input, last) {
+        return last + this.lowPassStrength * (input - last);
+    }
+
+    calculateMovement(deltaX, deltaY) {
+        const magnitude = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+        if (magnitude === 0) return { x: 0, y: 0 };
+        
+        let factor = 1.0;
+
+        // Lógica Headlock (Trava na cabeça ao chegar perto)
+        if (magnitude < this.precisionThreshold) {
+            // Usa o início lento da curva de Bézier
+            factor = this.solveBezier(magnitude / this.precisionThreshold) * 0.5;
+        } else {
+            // Velocity Clamping para Flicks (Evita pular o boneco)
+            factor = Math.min(magnitude, this.clampValue) / magnitude;
+        }
+
+        // Aplica o filtro e retorna o movimento processado
+        this.lastOutput.x = this.filter(deltaX * factor, this.lastOutput.x);
+        this.lastOutput.y = this.filter(deltaY * factor, this.lastOutput.y);
+
+        return this.lastOutput;
+    }
+}
